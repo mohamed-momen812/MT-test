@@ -13,20 +13,24 @@ class SubscriptionController extends Controller
 {
     public function subscribe(Request $request)
     {
-        $userId = $request->user()->id; // Assuming the user is authenticated
+        
+        $userId = $request->user()->id; 
+        
         $planeId = $request->input('plan_id');
 
         $plan = SubscriptionPlan::findOrFail($planeId);
-
         DB::beginTransaction();
         try {
 
-            // $paymentService = app(PaymentService::class);
-            // $paymentResult = $paymentService->charge($userId, $plan->price);
-
             // Simulate charging the user for the plan using PaymentService
-            $paymentService = new PaymentService();
+            // using app to resolve payment service
+            $paymentService = app('PaymentService');
+            // $paymentService = new PaymentService();
+
             $paymentResult = $paymentService->charge($userId, $plan->price);
+
+            dd($paymentResult['payment_method']);
+
 
             $startDate = Carbon::now();
             $endDate = Carbon::now()->addDays($plan->duration_days);
