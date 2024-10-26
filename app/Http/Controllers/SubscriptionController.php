@@ -5,20 +5,27 @@ namespace App\Http\Controllers;
 use App\Models\SubscriptionPlan;
 use App\Models\UserSubscription;
 use App\Services\PaymentService;
+use App\Traits\HttpResponses;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class SubscriptionController extends Controller
 {
+    use HttpResponses;
     public function subscribe(Request $request)
     {
-        
-        $userId = $request->user()->id; 
-        
-        $planeId = $request->input('plan_id');
 
-        $plan = SubscriptionPlan::findOrFail($planeId);
+        $userId = $request->user()->id;
+
+        $planId = $request->plan_id;
+
+        $plan = SubscriptionPlan::find($planId);
+
+        if(!$plan) {
+            return $this->error('', 'No plane found with this id', 404);
+        }
+
         DB::beginTransaction();
         try {
 
@@ -29,18 +36,13 @@ class SubscriptionController extends Controller
 
             $paymentResult = $paymentService->charge($userId, $plan->price);
 
-            dd($paymentResult['payment_method']);
-
-
             $startDate = Carbon::now();
             $endDate = Carbon::now()->addDays($plan->duration_days);
-            
+
             if($paymentResult['status'] === 'success') {
-
-
                 UserSubscription::create([
                     'user_id' => $userId,
-                    'subscription_plan_id' => $planeId,
+                    'subscription_plan_id' => $planId,
                     'start_date' => $startDate,
                     'end_date' => $endDate,
                     'status' => 'active',
@@ -48,35 +50,22 @@ class SubscriptionController extends Controller
 
                 DB::commit();
 
-                return response()->json([
-                    'message' => 'Subscription successful',
-                    'data' => [
+                return $this->success([
                         'user_id' => $userId,
-                        'subscription_plan_id' => $planeId,
+                        'subscription_plan_id' => $planId,
                         'start_date' => $startDate,
                         'end_date' => $endDate,
                         'transaction_id' => $paymentResult['transaction_id'],
                         'status' => 'active',
-                    ]
-                ]);
+                ], 'Subscription successful');
             }else{
                 DB::rollBack();
-                return response()->json([
-                    'message' => 'Subscription failed',
-                    'data' => [
-                        'user_id' => $userId,
-                        'subscription_plan_id' => $planeId,
-                        'start_date' => $startDate,
-                        'end_date' => $endDate,
-                        'transaction_id' => $paymentResult['transaction_id'],
-                        'status' => 'failed',
-                    ]
-                ]);
-            
+                return $this->error('', 'Subscription failed', 403);
+
             }
         }catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['error' => $e->getMessage()], 500);
+            return $this->error('', $e->getMessage(), 400);
         }
     }
 }

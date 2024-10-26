@@ -3,12 +3,14 @@
 namespace App\Http\Middleware;
 
 use App\Models\UserSubscription;
+use App\Traits\HttpResponses;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Response;
 
 class CheckSubscription
 {
+    use HttpResponses;
     /**
      * Handle an incoming request.
      *
@@ -25,7 +27,7 @@ class CheckSubscription
                             ->first();
 
         if (!$subscription) {
-            return Response::json(['message' => 'You do not have an active subscription.'], 403);
+            return $this->error('','You do not have an active subscription.' , 403);
         }
 
         return $next($request);
